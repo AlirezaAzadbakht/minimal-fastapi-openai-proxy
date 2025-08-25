@@ -1,0 +1,11 @@
+from typing import Dict
+import os
+
+# Map wrapper keys to real OpenAI API keys
+API_KEY_MAP: Dict[str, str] = {
+    "wrapper-key-alice": os.getenv("OPENAI_KEY_ALICE", "sk-alice"),
+    "wrapper-key-bob": os.getenv("OPENAI_KEY_BOB", "sk-bob"),
+}
+
+DEFAULT_CHAT_MODEL = "gpt-4o-mini"
+DEFAULT_EMBED_MODEL = "text-embedding-3-small"
