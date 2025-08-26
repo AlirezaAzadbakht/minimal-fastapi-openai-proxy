@@ -4,10 +4,11 @@ A **minimal FastAPI proxy** for [OpenAI](https://platform.openai.com) APIs — f
 
 ✨ Features:
 - Exposes **OpenAI-compatible endpoints** (`/v1/chat/completions`, `/v1/embeddings`)
-- Works out-of-the-box with the **official OpenAI Python SDK**
+- Works seamlessly with the **official OpenAI Python SDK**
 - Supports **streaming chat completions (SSE)**
-- Simple **wrapper API keys → real OpenAI API key mapping** (multi-tenant friendly)
-- Lightweight & minimal — no database required (can extend if needed)
+- Simple **wrapper → real API key mapping** (multi-tenant friendly)
+- Lightweight & minimal — no database needed
+- Deployable via **Supervisor** with included config
 
 ---
 
@@ -22,32 +23,37 @@ pip install -r requirements.txt
 
 ### 2. Configure keys
 
-Edit `main.py` or set environment variables:
+Copy the example config and add your keys:
+
+```bash
+cp configs/config.py.example configs/config.py
+```
+
+Edit `configs/config.py` and set your wrapper → real OpenAI key mappings:
 
 ```python
-# main.py
 API_KEY_MAP = {
     "wrapper-key-alice": "sk-alice-real-openai-key",
     "wrapper-key-bob":   "sk-bob-real-openai-key",
 }
 ```
 
-Each **wrapper key** is what your clients use.
-Each **mapped OpenAI key** is the real upstream key.
+Each **wrapper key** is used by clients.
+Each **mapped key** is the real OpenAI API key.
 
-### 3. Run the server
+### 3. Run the server (local dev)
 
 ```bash
-uvicorn main:app --reload
+uvicorn server:app --reload
 ```
 
-Server runs at [http://localhost:8000](http://localhost:8000).
+Server runs at: [http://localhost:8000](http://localhost:8000)
 
 ---
 
 ## 🔑 Usage with OpenAI SDK
 
-Point the SDK to your proxy, and pass a **wrapper key**:
+Point the SDK to your proxy and use a **wrapper key**:
 
 ```python
 from openai import OpenAI
@@ -69,11 +75,8 @@ with client.chat.completions.stream(
     model="gpt-4o-mini",
     messages=[{"role": "user", "content": "Write a haiku about FastAPI"}],
 ) as stream:
-    for event in stream:
-        if event.choices:
-            delta = event.choices[0].delta
-            if delta.content:
-                print(delta.content, end="")
+    for text in stream.text_stream:
+        print(text, end="")
     print()
 
 # Embeddings
@@ -89,13 +92,73 @@ print(len(emb.data[0].embedding), "dims")
 ## 🧩 API Endpoints
 
 * `POST /v1/chat/completions`
-  Compatible with OpenAI Chat Completions API (supports `stream: true` for SSE).
+  Compatible with OpenAI **Chat Completions API** (supports `stream: true` for SSE).
 
 * `POST /v1/embeddings`
-  Compatible with OpenAI Embeddings API.
+  Compatible with OpenAI **Embeddings API**.
 
 * `GET /health`
-  Simple health check endpoint.
+  Health check endpoint.
+
+---
+
+## 📦 Deployment with Supervisor
+
+For production, use **Supervisor** to manage the process.
+
+### 1. Supervisor config
+
+Save as `configs/minimal-fastapi-openai-proxy.conf`:
+
+```ini
+[program:minimal-fastapi-openai-proxy]
+command=/home/ubuntu/minimal-fastapi-openai-proxy/service.sh
+directory=/home/ubuntu/minimal-fastapi-openai-proxy
+autostart=true
+autorestart=true
+environment=PATH=/home/ubuntu/miniconda3/envs/minimal-fastapi-openai-proxy/bin:/usr/bin
+redirect_stderr=true
+stdout_logfile=/home/ubuntu/minimal-fastapi-openai-proxy/server.log
+stopasgroup=true
+```
+
+Place it in `/etc/supervisor/conf.d/` and reload:
+
+```bash
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl start minimal-fastapi-openai-proxy
+```
+
+### 2. `service.sh`
+
+Included script to run Uvicorn:
+
+```bash
+#!/bin/bash
+PORT=8000
+PID=$(lsof -t -i:$PORT)
+if [ -n "$PID" ]; then
+    kill -9 $PID
+    echo "Killed process using port $PORT"
+fi
+uvicorn server:app --host 0.0.0.0 --port $PORT --workers 1
+```
+
+Adjust `--workers` to fit your server resources.
+
+---
+
+## 🙌 Why?
+
+OpenAI’s API is powerful, but sometimes you need:
+
+* Multi-tenant key management
+* A lightweight proxy layer
+* Compatibility with the official SDK
+* Minimal setup with no DB
+
+That’s exactly what **minimal-fastapi-openai-proxy** provides.
 
 ---
 
@@ -103,17 +166,3 @@ print(len(emb.data[0].embedding), "dims")
 
 MIT License – free to use, modify, and share.
 See [LICENSE](./LICENSE) for details.
-
----
-
-## 🙌 Why?
-
-OpenAI’s official API is powerful, but sometimes you need:
-
-* Multi-tenant key management
-* A lightweight proxy layer
-* Compatibility with the OpenAI Python SDK
-* Minimal setup without extra dependencies
-
-That’s exactly what **minimal-fastapi-openai-proxy** provides.
-
