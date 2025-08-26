@@ -3,8 +3,8 @@ from routers import chat, embeddings
 
 app = FastAPI(title="Multi-key OpenAI Wrapper", version="1.0.0")
 
-app.include_router(chat.router)
-app.include_router(embeddings.router)
+app.include_router(chat.router, prefix="/v1")
+app.include_router(embeddings.router, prefix="/v1")
 
 @app.get("/health")
 async def health():

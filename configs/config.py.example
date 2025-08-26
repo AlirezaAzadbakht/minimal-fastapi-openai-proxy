@@ -7,5 +7,6 @@ API_KEY_MAP: Dict[str, str] = {
     "wrapper-key-bob": os.getenv("OPENAI_KEY_BOB", "sk-bob"),
 }
 
+UPSTREAM_BASE = "https://api.openai.com/v1"
 DEFAULT_CHAT_MODEL = "gpt-4o-mini"
 DEFAULT_EMBED_MODEL = "text-embedding-3-small"
