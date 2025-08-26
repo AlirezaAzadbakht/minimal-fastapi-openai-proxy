@@ -75,8 +75,11 @@ with client.chat.completions.stream(
     model="gpt-4o-mini",
     messages=[{"role": "user", "content": "Write a haiku about FastAPI"}],
 ) as stream:
-    for text in stream.text_stream:
-        print(text, end="")
+    for event in stream:
+        if getattr(event, "type", None) == "chunk":
+            delta = event.chunk.choices[0].delta
+            if delta and delta.content:
+                print(delta.content, end="", flush=True)
     print()
 
 # Embeddings
